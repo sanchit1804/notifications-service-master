@@ -1,82 +1,110 @@
-# Notification Service (mail-only)
+# Notification Service
 
-Spring Boot 3.3.4 / Java 17 / MySQL via JPA / explicit `ExecutorService` for async email dispatch.
+A mail-only notification microservice built with Spring Boot. Accepts a request to notify a user, persists the message to MySQL, and sends the email asynchronously via a dedicated thread pool — similar to how a job portal emails you after your application is submitted.
 
-## What changed from your version
+## Features
 
-**Bugs fixed**
-- `NotificationDTO`: `getnotificationType`/`setnotificationType` (lowercase `n`) broke Jackson's bean-property matching for JSON bodies — Jackson needs `getNotificationType`/`setNotificationType` to bind a `notificationType` JSON field. Since the project is mail-only now, this field was dropped entirely and replaced with `subject`.
-- `INofiticationRepository` → renamed `INotificationRepository` (typo).
-- IDs were `Short` (max value 32,767) on both `Notification` and the repository generic — switched to `Long`.
-- `NotificationController` used `org.springframework.util.StringUtils.isEmpty`, which is deprecated/removed in current Spring — replaced with `ObjectUtils.isEmpty` checks.
-- `EmailService` caught `MailException` and only logged it (silently swallowing send failures) while a separate generic `catch (Exception)` rethrew — inconsistent. Now every failure is rethrown as `EmailException` so the caller can record it.
-- Hardcoded `SENDER_MAIL` and `MAIL_SUBJECT` — sender now comes from `spring.mail.username`, subject comes from the request (or defaults to "Notification").
-- `NotificationService`, `NotificationController`, and `UserController` referenced classes that didn't exist anywhere in what you sent: `User`, `IUserService`/`UserService`, `UserNotFoundException`, plus a `Plan`/`PhoneType`/`IPushService`/`SmsService`/`PushException`/`SmsException` cluster for SMS and push notifications. Since you said the project is mail-only, I removed the SMS/push branch entirely instead of inventing those classes, and added the `User` pieces that genuinely are needed.
-- Every method declared `throws BaseException` but nothing ever caught it — added `GlobalExceptionHandler` so a failure returns a real HTTP status + message instead of a generic 500.
+- REST API to create users and trigger email notifications
+- Every notification is persisted with a status (`PENDING` → `SENT`/`FAILED`), so you always have an audit trail of what was sent
+- Email dispatch runs on a background `ExecutorService` (fixed thread pool of `Runnable` tasks), so API calls return immediately instead of blocking on SMTP
+- Centralized exception handling returns proper HTTP status codes instead of generic 500s
 
-**Database**
-- Removed `db/DatabaseConfig.java` (in-memory HSQL with seed SQL scripts). The datasource is now MySQL, configured entirely through `application.properties`, auto-wired by Spring Boot — no manual `DataSource` bean needed.
-- `spring.jpa.hibernate.ddl-auto=update` so tables are created/updated automatically from the entities on startup. No manual schema file needed.
-- Added `status` (`PENDING` / `SENT` / `FAILED`), `subject`, `createdAt`, `sentAt`, and `failureReason` to `Notification` so the DB actually reflects what was attempted and whether it succeeded — that's the "save mail messages that are to be sent" part.
+## Tech Stack
 
-**Multithreading**
-- Replaced `@Async` on `EmailService` with an explicit `ExecutorService` bean (`ExecutorConfig`, fixed thread pool, size configurable via `notification.executor.pool-size`).
-- `NotificationService.notify()` saves the `Notification` row as `PENDING` immediately, then submits a `new EmailNotificationTask(...)` (implements `Runnable`) to that executor. The task sends the email and writes back `SENT` or `FAILED` on its own thread, so the HTTP request returns immediately (`202 Accepted`) without waiting on SMTP.
+- Java 17
+- Spring Boot 3.3.4 (Web, Data JPA, Mail)
+- MySQL
+- Maven
 
-**One assumption I made:** I picked MySQL (your stack notes mention MySQL/PostgreSQL) and Spring Boot 3.3.4 with `jakarta.persistence` (matching your URL Shortener project) instead of the `javax.persistence` in what you pasted, since Spring Boot 2.x is end-of-life. If you want PostgreSQL instead, swap the `mysql-connector-j` dependency for `org.postgresql:postgresql` and adjust the `spring.datasource.url`/dialect — say the word and I'll do it.
-
-## Setup
-
-1. **MySQL** — have a MySQL server running locally (or remote). The schema/database itself (`notification_db`) is auto-created by the JDBC URL's `createDatabaseIfNotExist=true`; you just need MySQL running and reachable.
-2. **Gmail SMTP (or any SMTP provider)** — if using Gmail, enable 2FA on the account and generate an [App Password](https://myaccount.google.com/apppasswords); that 16-character value goes in `spring.mail.password`, not your real Gmail password.
-3. Set these via environment variables (recommended) or edit `application.properties` directly:
+## Project Structure
 
 ```
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=notification_db
-DB_USERNAME=root
-DB_PASSWORD=yourpassword
-
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USERNAME=you@gmail.com
-MAIL_PASSWORD=your-app-password
+src/main/java/com/project/
+├── config/        # Spring Boot bootstrap + ExecutorService bean
+├── controller/     # REST endpoints
+├── dto/            # Request payloads
+├── exception/      # Custom exceptions + global handler
+├── model/          # JPA entities
+├── repository/     # Spring Data JPA repositories
+├── service/        # Business logic
+├── task/           # Runnable submitted to the executor for async email sends
+└── utility/service/ # Low-level SMTP sending
 ```
 
-4. Run it:
-```
+## Prerequisites
+
+- JDK 17+
+- Maven 3.6+
+- A running MySQL instance
+- An SMTP account (e.g. Gmail with an [App Password](https://myaccount.google.com/apppasswords))
+
+## Configuration
+
+All config lives in `src/main/resources/application.properties` and can be overridden with environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `DB_HOST` | `localhost` | MySQL host |
+| `DB_PORT` | `3306` | MySQL port |
+| `DB_NAME` | `notification_db` | Database name (auto-created if missing) |
+| `DB_USERNAME` | `root` | MySQL username |
+| `DB_PASSWORD` | `password` | MySQL password |
+| `MAIL_HOST` | `smtp.gmail.com` | SMTP host |
+| `MAIL_PORT` | `587` | SMTP port |
+| `MAIL_USERNAME` | — | SMTP account email |
+| `MAIL_PASSWORD` | — | SMTP account password / app password |
+| `NOTIFICATION_POOL_SIZE` | `10` | Thread pool size for async email sends |
+
+## Running Locally
+
+```bash
+git clone https://github.com/sanchit1804/notification-service.git
+cd notification-service
+
+export DB_USERNAME=root
+export DB_PASSWORD=yourpassword
+export MAIL_USERNAME=you@gmail.com
+export MAIL_PASSWORD=your-app-password
+
 mvn spring-boot:run
 ```
 
-## Testing end to end
+The service starts on `http://localhost:8080`.
 
-Create a user:
-```
+## API Reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/users` | Create a user |
+| `GET` | `/users` | List all users |
+| `POST` | `/notify/user/{userId}` | Queue and send an email notification |
+| `GET` | `/get/user/{userId}/notification` | Get a user's notification history with status |
+
+### Create a user
+
+```bash
 curl -X POST http://localhost:8080/users \
   -H "Content-Type: application/json" \
-  -d '{"name":"Sanchit","email":"your-real-inbox@example.com"}'
+  -d '{"name":"Sanchit","email":"you@example.com"}'
 ```
-Note the returned `id`.
 
-Trigger a notification email (e.g. the "application sent" use case):
-```
+### Send a notification
+
+```bash
 curl -X POST http://localhost:8080/notify/user/1 \
   -H "Content-Type: application/json" \
   -d '{"subject":"Application Received","message":"Your job application has been successfully submitted."}'
 ```
-This returns `202 Accepted` immediately; the email is sent on a background thread.
 
-Check what got recorded (status will be `SENT` or `FAILED` once the background thread finishes):
-```
+Returns `202 Accepted` immediately; the email is sent on a background thread.
+
+### Check notification status
+
+```bash
 curl http://localhost:8080/get/user/1/notification
 ```
 
-## Endpoints
+## How async dispatch works
 
-| Method | Path | Purpose |
-|---|---|---|
-| POST | `/users` | create a user |
-| GET | `/users` | list users |
-| POST | `/notify/user/{userId}` | queue + send an email notification |
-| GET | `/get/user/{userId}/notification` | list a user's notification history with status |
+`NotificationService.notify()` saves the notification as `PENDING`, then submits an `EmailNotificationTask` (a `Runnable`) to a fixed-size `ExecutorService` bean. That task sends the email via SMTP and writes the outcome (`SENT` or `FAILED`, with a failure reason if applicable) back to the same row — all off the original request thread.
+

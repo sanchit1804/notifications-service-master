@@ -1,6 +1,6 @@
 # Notification Service
 
-A mail-only notification microservice built with Spring Boot. Accepts a request to notify a user, persists the message to MySQL, and sends the email asynchronously via a dedicated thread pool — similar to how a job portal emails you after your application is submitted.
+A mail-only notification microservice built with Spring Boot. Accepts a request to notify a user, persists the message to a database, and sends the email asynchronously via a dedicated thread pool — similar to how a job portal emails you after your application is submitted.
 
 ## Features
 
@@ -13,7 +13,7 @@ A mail-only notification microservice built with Spring Boot. Accepts a request 
 
 - Java 17
 - Spring Boot 3.3.4 (Web, Data JPA, Mail)
-- MySQL
+- H2 (embedded, in-memory database)
 - Maven
 
 ## Project Structure
@@ -35,25 +35,27 @@ src/main/java/com/project/
 
 - JDK 17+
 - Maven 3.6+
-- A running MySQL instance
-- An SMTP account (e.g. Gmail with an [App Password](https://myaccount.google.com/apppasswords))
+- An SMTP account (e.g. Gmail with an [App Password](https://myaccount.google.com/apppasswords), or a free [Mailtrap](https://mailtrap.io) sandbox inbox for testing)
+
+No database install needed — this uses an embedded H2 in-memory database. Data resets every time the app restarts, which is fine for development/testing. To switch to MySQL/PostgreSQL for real persistence later, swap the `h2` dependency in `pom.xml` and update the `spring.datasource.*` properties accordingly.
 
 ## Configuration
 
-All config lives in `src/main/resources/application.properties` and can be overridden with environment variables:
+All config lives in `src/main/resources/application.properties`.
 
-| Variable | Default | Description |
+| Property | Default | Description |
 |---|---|---|
-| `DB_HOST` | `localhost` | MySQL host |
-| `DB_PORT` | `3306` | MySQL port |
-| `DB_NAME` | `notification_db` | Database name (auto-created if missing) |
-| `DB_USERNAME` | `root` | MySQL username |
-| `DB_PASSWORD` | `password` | MySQL password |
-| `MAIL_HOST` | `smtp.gmail.com` | SMTP host |
-| `MAIL_PORT` | `587` | SMTP port |
-| `MAIL_USERNAME` | — | SMTP account email |
-| `MAIL_PASSWORD` | — | SMTP account password / app password |
-| `NOTIFICATION_POOL_SIZE` | `10` | Thread pool size for async email sends |
+| `spring.datasource.url` | `jdbc:h2:mem:notification_db` | In-memory DB, no install/login needed |
+| `spring.mail.host` | `smtp.gmail.com` | SMTP host |
+| `spring.mail.username` | — | SMTP account email |
+| `spring.mail.password` | — | SMTP account password / app password |
+| `notification.executor.pool-size` | `10` | Thread pool size for async email sends |
+
+The mail values are set via environment variables before running:
+```bash
+export MAIL_USERNAME=you@gmail.com
+export MAIL_PASSWORD=your-app-password
+```
 
 ## Running Locally
 
@@ -61,15 +63,13 @@ All config lives in `src/main/resources/application.properties` and can be overr
 git clone https://github.com/sanchit1804/notification-service.git
 cd notification-service
 
-export DB_USERNAME=root
-export DB_PASSWORD=yourpassword
 export MAIL_USERNAME=you@gmail.com
 export MAIL_PASSWORD=your-app-password
 
 mvn spring-boot:run
 ```
 
-The service starts on `http://localhost:8080`.
+The service starts on `http://localhost:8080`. You can browse the in-memory database directly at `http://localhost:8080/h2-console` — JDBC URL `jdbc:h2:mem:notification_db`, username `sa`, no password.
 
 ## API Reference
 

@@ -8,7 +8,7 @@ import com.project.model.Notification;
 
 public interface INotificationService {
 
-	public void notify(String userId, NotificationDTO notification) throws BaseException;
+	void notify(Long userId, NotificationDTO notification) throws BaseException;
 
-	public List<Notification> getNotifications(String userId) throws BaseException;
+	List<Notification> getNotifications(Long userId) throws BaseException;
 }

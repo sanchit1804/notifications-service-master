@@ -1,15 +1,19 @@
 package com.project.model;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.ForeignKey;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.Table;
+import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "notification")
@@ -17,55 +21,91 @@ public class Notification {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column
-	private Short id;
+	private Long id;
 
-	@Column
+	@Column(length = 150)
+	private String subject;
+
+	@Column(nullable = false, length = 2000)
 	private String message;
 
 	@ManyToOne(fetch = FetchType.EAGER)
-	@JoinColumn(name = "user_id", foreignKey = @ForeignKey(name = "user_id_fk"))
+	@JoinColumn(name = "user_id", foreignKey = @ForeignKey(name = "user_id_fk"), nullable = false)
 	private User user;
 
-	/**
-	 * @return the id
-	 */
-	public Short getId() {
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false)
+	private NotificationStatus status;
+
+	@Column(nullable = false)
+	private LocalDateTime createdAt;
+
+	private LocalDateTime sentAt;
+
+	@Column(length = 500)
+	private String failureReason;
+
+	public Long getId() {
 		return id;
 	}
 
-	/**
-	 * @param id the id to set
-	 */
-	public void setId(Short id) {
+	public void setId(Long id) {
 		this.id = id;
 	}
 
-	/**
-	 * @return the message
-	 */
+	public String getSubject() {
+		return subject;
+	}
+
+	public void setSubject(String subject) {
+		this.subject = subject;
+	}
+
 	public String getMessage() {
 		return message;
 	}
 
-	/**
-	 * @param message the message to set
-	 */
 	public void setMessage(String message) {
 		this.message = message;
 	}
 
-	/**
-	 * @return the user
-	 */
 	public User getUser() {
 		return user;
 	}
 
-	/**
-	 * @param user the user to set
-	 */
 	public void setUser(User user) {
 		this.user = user;
+	}
+
+	public NotificationStatus getStatus() {
+		return status;
+	}
+
+	public void setStatus(NotificationStatus status) {
+		this.status = status;
+	}
+
+	public LocalDateTime getCreatedAt() {
+		return createdAt;
+	}
+
+	public void setCreatedAt(LocalDateTime createdAt) {
+		this.createdAt = createdAt;
+	}
+
+	public LocalDateTime getSentAt() {
+		return sentAt;
+	}
+
+	public void setSentAt(LocalDateTime sentAt) {
+		this.sentAt = sentAt;
+	}
+
+	public String getFailureReason() {
+		return failureReason;
+	}
+
+	public void setFailureReason(String failureReason) {
+		this.failureReason = failureReason;
 	}
 }

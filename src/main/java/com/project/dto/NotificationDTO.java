@@ -2,36 +2,23 @@ package com.project.dto;
 
 public class NotificationDTO {
 
-	String message;
+	private String subject;
 
-	String notificationType;
+	private String message;
 
-	/**
-	 * @return the message
-	 */
+	public String getSubject() {
+		return subject;
+	}
+
+	public void setSubject(String subject) {
+		this.subject = subject;
+	}
+
 	public String getMessage() {
 		return message;
 	}
 
-	/**
-	 * @param message the message to set
-	 */
 	public void setMessage(String message) {
 		this.message = message;
 	}
-
-	/**
-	 * @return the notificationType
-	 */
-	public String getnotificationType() {
-		return notificationType;
-	}
-
-	/**
-	 * @param notificationType the notificationType to set
-	 */
-	public void setnotificationType(String notificationType) {
-		this.notificationType = notificationType;
-	}
-
 }

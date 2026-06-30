@@ -1,33 +1,31 @@
 package com.project.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
 
-import com.project.config.Application;
 import com.project.dto.NotificationDTO;
 import com.project.exception.BaseException;
-import com.project.exception.EmailException;
 import com.project.exception.NotificationException;
-import com.project.exception.PushException;
-import com.project.exception.SmsException;
 import com.project.exception.UserNotFoundException;
 import com.project.model.Notification;
-import com.project.model.PhoneType;
-import com.project.model.Plan;
+import com.project.model.NotificationStatus;
 import com.project.model.User;
-import com.project.repository.INofiticationRepository;
+import com.project.repository.INotificationRepository;
+import com.project.task.EmailNotificationTask;
 import com.project.utility.service.EmailService;
-import com.project.utility.service.SmsService;
 
 @Service
 public class NotificationService implements INotificationService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(NotificationService.class);
+	private static final String DEFAULT_SUBJECT = "Notification";
 
 	@Autowired
 	private IUserService userService;
@@ -36,85 +34,38 @@ public class NotificationService implements INotificationService {
 	private EmailService emailService;
 
 	@Autowired
-	private INofiticationRepository notifRepo;
+	private INotificationRepository notifRepo;
 
 	@Autowired
-	private SmsService smsService;
-
-	@Autowired
-	@Qualifier("androidService")
-	private IPushService androidService;
-
-	@Autowired
-	@Qualifier("appleService")
-	private IPushService appleService;
+	private ExecutorService notificationExecutor;
 
 	@Override
-	public void notify(String userId, NotificationDTO notification) throws BaseException {
+	public void notify(Long userId, NotificationDTO notificationDTO) throws BaseException {
 		User user = userService.getUser(userId);
-		if (user != null) {
-			createNotification(notification, user);
-			String plan = user.getSubscriptionPlan();
-			sendNotification(user, Enum.valueOf(Plan.class, plan), notification.getMessage());
-		} else {
+		if (user == null) {
 			LOG.error("User not found in database");
 			throw new UserNotFoundException("User not found in database");
 		}
+		Notification notification = createNotification(notificationDTO, user);
+		notificationExecutor.submit(new EmailNotificationTask(notification, user, emailService, notifRepo));
 	}
 
-	private void createNotification(NotificationDTO notification, User user) throws BaseException {
+	private Notification createNotification(NotificationDTO dto, User user) throws BaseException {
 		try {
 			Notification notif = new Notification();
-			notif.setMessage(notification.getMessage());
+			notif.setSubject(ObjectUtils.isEmpty(dto.getSubject()) ? DEFAULT_SUBJECT : dto.getSubject());
+			notif.setMessage(dto.getMessage());
 			notif.setUser(user);
-			notifRepo.save(notif);
+			notif.setStatus(NotificationStatus.PENDING);
+			notif.setCreatedAt(LocalDateTime.now());
+			return notifRepo.save(notif);
 		} catch (Exception ex) {
-			throw new NotificationException(ex.getMessage());
+			throw new NotificationException(ex.getMessage(), ex);
 		}
-	}
-
-	private void sendNotification(User user, Plan plan, String message)
-			throws BaseException {
-		switch (plan) {
-		case SILVER:
-			sendEmail(user, message);
-			break;
-		case GOLD:
-			sendEmail(user, message);
-			sendSMS(user, message);
-			break;
-		case PLATINUM:
-			sendEmail(user, message);
-			sendSMS(user, message);
-			sendPush(user, message);
-			break;
-		default:
-			LOG.error("Incorrect Plan name: {}", plan);
-		}
-	}
-
-	private void sendPush(User user, String message) throws PushException {
-		if (user.getPhoneType().equalsIgnoreCase(PhoneType.APPLE.toString())) {
-			appleService.pushNotification(user, message);
-		} else if (user.getPhoneType().equalsIgnoreCase(PhoneType.ANDROID.toString())) {
-			androidService.pushNotification(user, message);
-		}
-	}
-
-	private void sendSMS(User user, String message) throws SmsException {
-		smsService.sendSMS(user, message);
-	}
-
-	private void sendEmail(User user, String message) throws EmailException {
-		emailService.sendEmail(user, message);
 	}
 
 	@Override
-	public List<Notification> getNotifications(String userId) throws NotificationException {
-		try {
-			return notifRepo.findAllByUserId(Short.valueOf(userId));
-		} catch (NumberFormatException ex) {
-			throw new NotificationException(ex.getMessage());
-		}
+	public List<Notification> getNotifications(Long userId) throws NotificationException {
+		return notifRepo.findAllByUserId(userId);
 	}
 }

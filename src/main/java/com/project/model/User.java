@@ -1,124 +1,47 @@
 package com.project.model;
 
-import java.io.Serializable;
-
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "users")
-public class User implements Serializable {
-
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = -9182526415261141967L;
+@Table(name = "app_user")
+public class User {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column
-	private short id;
+	private Long id;
 
-	@Column
+	@Column(nullable = false)
+	private String name;
+
+	@Column(nullable = false, unique = true)
 	private String email;
 
-	@Column
-	private String phoneNumber;
-
-	@Column
-	private String subscriptionPlan;
-
-	@Column
-	private String notificationLimit;
-
-	@Column
-	private String phoneType;
-
-	/**
-	 * @return the phoneType
-	 */
-	public String getPhoneType() {
-		return phoneType;
-	}
-
-	/**
-	 * @param phoneType the phoneType to set
-	 */
-	public void setPhoneType(String phoneType) {
-		this.phoneType = phoneType;
-	}
-
-	/**
-	 * @return the id
-	 */
-	public short getId() {
+	public Long getId() {
 		return id;
 	}
 
-	/**
-	 * @param id the id to set
-	 */
-	public void setId(short id) {
+	public void setId(Long id) {
 		this.id = id;
 	}
 
-	/**
-	 * @return the email
-	 */
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
 	public String getEmail() {
 		return email;
 	}
 
-	/**
-	 * @param email the email to set
-	 */
 	public void setEmail(String email) {
 		this.email = email;
-	}
-
-	/**
-	 * @return the phoneNumber
-	 */
-	public String getPhoneNumber() {
-		return phoneNumber;
-	}
-
-	/**
-	 * @param phoneNumber the phoneNumber to set
-	 */
-	public void setPhoneNumber(String phoneNumber) {
-		this.phoneNumber = phoneNumber;
-	}
-
-	/**
-	 * @return the subscriptionPlan
-	 */
-	public String getSubscriptionPlan() {
-		return subscriptionPlan;
-	}
-
-	/**
-	 * @param subscriptionPlan the subscriptionPlan to set
-	 */
-	public void setSubscriptionPlan(String subscriptionPlan) {
-		this.subscriptionPlan = subscriptionPlan;
-	}
-
-	/**
-	 * @return the notificationLimit
-	 */
-	public String getNotificationLimit() {
-		return notificationLimit;
-	}
-
-	/**
-	 * @param notificationLimit the notificationLimit to set
-	 */
-	public void setNotificationLimit(String notificationLimit) {
-		this.notificationLimit = notificationLimit;
 	}
 }

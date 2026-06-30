@@ -11,5 +11,4 @@ public class EmailException extends BaseException {
 	public EmailException(String errorMsg, Throwable throwable) {
 		super(errorMsg, throwable);
 	}
-
 }
